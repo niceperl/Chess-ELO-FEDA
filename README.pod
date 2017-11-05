@@ -1,0 +1,87 @@
+=pod
+
+=encoding UTF-8
+
+=head1 NAME
+
+Chess::ELO::FEDA - Download FEDA ELO (L<http://www.feda.org>) into differents backends
+
+=head1 VERSION
+
+version 0.01
+
+=head1 SYNOPSIS
+
+   my $elo = Chess::ELO::FEDA->new(
+      -url      => 'http://feda.org/feda2k16/wp-content/uploads/2017_11.zip'
+      -folder   => './elo/feda',
+      -target   => '2017_11.sqlite',
+      -callback => sub { my $player = shift; },
+      -verbose  => 1
+   );
+
+=head1 METHODS
+
+=head2 new (%OPTS)
+
+Constructor. It accepts a hash with these options:
+
+=over 4
+
+=item -callback
+
+This callback sub will be called on each record found. It receives a hash
+reference with the player data: feda_id, surname, name, fed, rating, games, 
+birth, title, flag
+
+=item -folder
+
+Working folder of the overall process. It is not created if it doesn't exists.
+
+=item -target
+
+Target file where the parser stores the ELO information. According the file
+extension, it selects the proper backend: .sqlite for SQLite dabase or .csv
+for a CSV file format.
+
+=item -url
+
+The URL direction (http://) used by the downloader to search the ZIP file. The
+main file expected into the package is the XLS
+
+=item -verbose
+
+0 by default. If set, shows useful debug messages
+
+=back
+
+=head2 cleanup
+
+Unlink the files dowloaded for this downloader
+
+=head2 download
+
+Download the ZIP file from the -url parameter. Extract the XLS file to the
+target_folder (which must exists)
+
+=head2 parse
+
+Parse and transform the XLS input file to the proper backend, according the
+-target parameter.
+
+=head2 run
+
+Integrates download, parse and cleanup in a single call.
+
+=head1 AUTHOR
+
+Miguel Prz <niceperl@gmail.com>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is copyright (c) 2017 by Miguel Prz.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+=cut
