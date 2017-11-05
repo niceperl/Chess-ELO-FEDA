@@ -4,7 +4,7 @@
 
 =head1 NAME
 
-Chess::ELO::FEDA - Download FEDA ELO (L<http://www.feda.org>) into differents backends
+Chess::ELO::FEDA - Download FEDA ELO (L<http://www.feda.org>) into differents backends (SQLite)
 
 =head1 VERSION
 

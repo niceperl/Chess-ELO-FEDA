@@ -11,7 +11,7 @@ use IO::Uncompress::Unzip qw/$UnzipError/;
 use Spreadsheet::ParseExcel;
 use Encode qw/decode/;
 
-# ABSTRACT: Download FEDA ELO (L<http://www.feda.org>) into differents backends
+# ABSTRACT: Download FEDA ELO (L<http://www.feda.org>) into differents backends (SQLite)
 
 =head1 SYNOPSIS
 

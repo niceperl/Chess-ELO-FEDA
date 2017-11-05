@@ -13,9 +13,3 @@ lives_ok sub {Chess::ELO::FEDA->new(-path=>'.', -target=>'test.csv');}, "Constru
 
 dies_ok sub {Chess::ELO::FEDA->new(-path=>'/a/path/invalid/' . time(), -target=>'test.sqlite');}, "Invalid path not allowed";
 
-my $tempdir = tempdir('chess-elo-feda-XXXXXXXX', CLEANUP => 1);
-my $cef = Chess::ELO::FEDA->new(-path=>$tempdir, -target=>'test.csv', -url=>'http://feda.org/feda2k16/wp-content/uploads/2017_11.zip');
-$cef->download;
-
-print $tempdir, "\n";
-unlink $tempdir;
