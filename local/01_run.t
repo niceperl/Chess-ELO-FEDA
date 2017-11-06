@@ -13,8 +13,9 @@ my $tempdir = "$Bin/data";
 my $cef = Chess::ELO::FEDA->new(
                -path=>$tempdir, 
                -target=>'test.sqlite', 
+               #-target=>'test.csv', 
                -url=>'http://feda.org/feda2k16/wp-content/uploads/2017_11.zip', 
-               -callback=> sub{ my $p =shift; print $p->{'surname'}, "\n"},
+               #-callback=> sub{ my $p =shift; print $p->{'surname'}, "\n"},
                -verbose=>1
 );
 
@@ -25,5 +26,7 @@ ok( $rc_d, 'download: ' . $cef->{-xls} );
 my $rc_p = $cef->parse;
 ok( $rc_p, 'parse xls: ' . $cef->{-target} );
 
+
+#$cef->run();
 
 done_testing;

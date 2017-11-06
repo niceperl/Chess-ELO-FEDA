@@ -4,6 +4,7 @@ use strict;
 use warnings;
 
 use DBI;
+use DBD::CSV;
 use DBD::SQLite;
 use File::Spec::Functions;
 use HTTP::Tiny;
@@ -57,8 +58,6 @@ main file expected into the package is the XLS
 =back 
 =cut
 
-#-------------------------------------------------------------------------------
-
 sub new {
    my $class = shift;
    my %args = @_;
@@ -83,16 +82,20 @@ sub new {
    bless $self, $class;
 }
 
+#-------------------------------------------------------------------------------
+
 =method cleanup
 
 Unlink the files dowloaded for this downloader
 
 =cut
 
-#-------------------------------------------------------------------------------
-
 sub cleanup {
-
+   my $self = shift;
+   if( -e $self->{-xls} ) {
+      $self->{-verbose} and print "+ remove xls file: ", $self->{-xls}, "\n";
+      unlink $self->{-xls};
+   }
 }
 
 #-------------------------------------------------------------------------------
@@ -104,17 +107,17 @@ target_folder (which must exists)
 
 =cut
 
-#-------------------------------------------------------------------------------
-
 sub download {
    my $self = shift;
    
-   my $response = HTTP::Tiny->new->get($self->{-url});
-   die "GET [$self->{-url}] failed" unless $response->{success};
-
    my $target_filename = catfile($self->{-path}, $self->{-target});
    my $zip_filename = $target_filename . '.zip';
    my $xls_filename = $target_filename . '.xls';
+
+   ##my $response = {content=>'', status=>200, reason=>'OK'};
+   my $response = HTTP::Tiny->new->get($self->{-url});
+   die "GET [$self->{-url}] failed" unless $response->{success};
+
    if( length $response->{content} ) {
       open my $fhz, ">", $zip_filename or die "Cannot open file: $zip_filename";
       binmode $fhz;
@@ -129,6 +132,7 @@ sub download {
    return (-e $self->{-xls}) ? 1 : 0;
 }
 
+#-------------------------------------------------------------------------------
 
 =method parse
 
@@ -137,15 +141,25 @@ Parse and transform the XLS input file to the proper backend, according the
 
 =cut
 
-#-------------------------------------------------------------------------------
-
 sub parse {
    my $self = shift;
+   
+   my $rc = 0;
+
    if( $self->{-ext} eq 'sqlite' ) {
-      $self->_parse_sqlite();
+      $rc = $self->_parse_sqlite;
+   }
+   elsif( $self->{-ext} eq 'csv' ) {
+      $rc = $self->_parse_csv;
+   }
+   else {
+      die "Unsupported target. Not in [sqlite, csv]";
    }
 
+   return $rc;
 }
+
+#-------------------------------------------------------------------------------
 
 =method run
 
@@ -153,10 +167,16 @@ Integrates download, parse and cleanup in a single call.
 
 =cut
 
-#-------------------------------------------------------------------------------
-
 sub run {
+   my $self = shift;
+   my $rc = 0;
 
+   if( $self->download() ) {
+      $rc = $self->parse;
+      $self->cleanup;
+   }
+
+   return $rc;
 }
 
 #-------------------------------------------------------------------------------
@@ -182,7 +202,7 @@ sub _extract_file_from_zip {
       last;
    }
  
-    return ($filename) ? $xlsfile . "/$filename" : undef;
+   return ($filename) ? $xlsfile . "/$filename" : undef;
 }
 
 #-------------------------------------------------------------------------------
@@ -190,22 +210,66 @@ sub _extract_file_from_zip {
 sub _parse_sqlite {
    my $self = shift;
    
-   my $sqlite_file = catfile($self->{-path}, $self->{-target});
-   my $dbh = DBI->connect("dbi:SQLite:dbname=$sqlite_file","","", {RaiseError=>1, AutoCommit=>0});
+   $self->{-dbfile} = catfile($self->{-path}, $self->{-target});
+   $self->{-verbose} and print "+ DB File: ", $self->{-dbfile}, "\n";
+   unlink $self->{-dbfile} if -e $self->{-dbfile};
 
-   $dbh->do(qq/DROP TABLE IF EXISTS elo_feda/);
+   my $dbh = DBI->connect("dbi:SQLite:dbname=" . $self->{-dbfile}, "", "", {
+                  RaiseError=>1, 
+                  AutoCommit=>0
+   }) or die $DBI::errstr;
+   my $rc = $self->_parse_abstract_dbd($dbh);
+   $dbh->disconnect;
+   return $rc;
+}
+
+#-------------------------------------------------------------------------------
+
+sub _parse_csv {
+   my $self = shift;
+
+   $self->{-dbfile} = catfile($self->{-path}, $self->{-target});
+   $self->{-verbose} and print "+ DB File: ", $self->{-dbfile}, "\n";
+   unlink $self->{-dbfile} if -e $self->{-dbfile};
+
+   my $dbh = DBI->connect ("dbi:CSV:", "", "", {
+               f_schema         => undef,
+               f_dir            => $self->{-path},
+               f_encoding       => "utf8",
+               csv_eol          => "\n",
+               csv_sep_char     => ",",
+               csv_quote_char   => '"',
+               csv_escape_char  => '"',
+               csv_class        => "Text::CSV_XS",
+               csv_null         => 1,
+               csv_always_quote => 1,
+               csv_tables       => { elo_feda => { f_file => $self->{-target} } },
+               RaiseError       => 1,
+               AutoCommit       => 1
+   }) or die $DBI::errstr;
+   my $rc = $self->_parse_abstract_dbd($dbh);
+   $dbh->disconnect;
+   return $rc;
+}
+
+#-------------------------------------------------------------------------------
+
+sub _parse_abstract_dbd {
+   my $self = shift;
+   my $dbh = shift;
+   
    $dbh->do(qq/CREATE TABLE elo_feda(
-feda_id number(9) primary key, 
+feda_id integer primary key, 
 surname varchar(32) not null,
 name    varchar(32), 
 fed     varchar(8), 
-rating  number(4) default 0, 
-games   number(4) default 0, 
-birth   number(4), 
+rating  integer, 
+games   integer, 
+birth   integer, 
 title   varchar(16), 
 flag    varchar(8)
 )/ );
-   print "+ Load XLS: ", $self->{-xls}, "\n";
+   $self->{-verbose} and print "+ Load XLS: ", $self->{-xls}, "\n";
 
    my $parser   = Spreadsheet::ParseExcel->new;
    my $workbook = $parser->parse( $self->{-xls} )
@@ -218,25 +282,23 @@ flag    varchar(8)
    my @player_keys = qw/feda_id name fed rating games birth title flag/;
 
    sub new_xls_player {
-      my ($worksheet, $stmt, $player_keys, $callback, $start_row, $stop_row) = @_;
+      my ($worksheet, $stmt, $player_keys, $callback, $start_row, $stop_row, $verbose) = @_;
       for my $row ( $start_row .. $stop_row ) {
          my %feda_player;
-         map {
-               my $cell = $worksheet->get_cell($row,$_);
-               my $value = $cell ? $cell->value : undef; 
-               $feda_player{ $player_keys->[$_] } = $value;
-         } 0..7;
+         for my $col_index( 0..7 ) {
+            my $cell = $worksheet->get_cell($row, $col_index);
+            my $value = $cell ? $cell->value : undef; 
+            $feda_player{ $player_keys->[$col_index] } = $value;
+         }
          
          ##next if $feda_player{fed} ne 'CNT';
          
          $feda_player{name} = decode('latin1', $feda_player{name});
          
-         my $handled = 0;
          my $name = $feda_player{name};
          my ($apellidos, $nombre) = split / *, */, $name;
 
          if( $apellidos && $nombre ) {
-               $handled = 1;
                $feda_player{surname} = $apellidos;
                $feda_player{name}    = $nombre;
          }
@@ -262,12 +324,9 @@ flag    varchar(8)
                         $feda_player{flag}
                );
                $callback and $callback->(\%feda_player);
-               
          };
          if($@) {
-               print "ERROR: $@";
-               print Dumper(\%feda_player), "\n";
-               die "DB ERROR";
+            $verbose and print "DB Error: $@", "\n";   
          }
       }
    }
@@ -278,24 +337,15 @@ flag    varchar(8)
    
    my $stmt = $dbh->prepare("insert into elo_feda (feda_id, surname, name, fed, rating, games, birth, title, flag) values (?,?,?,?,?,?,?,?,?)");
    do {
-      #print $i, " / ", $row_max, "\n";
-      new_xls_player($worksheet, $stmt, \@player_keys, $self->{-callback}, $i, $j);
-      $dbh->commit;
+      new_xls_player($worksheet, $stmt, \@player_keys, $self->{-callback}, $i, $j, $self->{-verbose});
+      $dbh->commit unless $dbh->{AutoCommit};
       $i += $BLOCK_TXN;
       $j = ($i + $BLOCK_TXN -1) > $row_max ? $row_max : $i + $BLOCK_TXN - 1;
    } while( $i <= $row_max );
 
    $stmt->finish;
-   $dbh->disconnect;
 
-}
-
-#-------------------------------------------------------------------------------
-
-
-sub _parse_csv {
-   my $self = shift;
-   die "Unsupported";
+   return 1;
 }
 
 #-------------------------------------------------------------------------------

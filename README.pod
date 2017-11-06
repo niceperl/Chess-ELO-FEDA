@@ -8,7 +8,7 @@ Chess::ELO::FEDA - Download FEDA ELO (L<http://www.feda.org>) into differents ba
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 

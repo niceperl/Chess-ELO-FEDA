@@ -1,0 +1,3 @@
+*.tar.gz
+Chess-ELO-FEDA-*
+local/data/*
