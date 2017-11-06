@@ -24,6 +24,24 @@ use Encode qw/decode/;
       -verbose  => 1
    );
 
+=head1 DESCRIPTION
+
+The main idea of this module consists on build a SQL format from the XLS
+downloaded from the URL provided. All players information are loaded into
+"elo_feda" table, according this script:
+
+   CREATE TABLE elo_feda(
+      feda_id integer primary key, 
+      surname varchar(32) not null,
+      name    varchar(32), 
+      fed     varchar(8), 
+      rating  integer, 
+      games   integer, 
+      birth   integer, 
+      title   varchar(16), 
+      flag    varchar(8)
+   );
+
 =method new (%OPTS)
 
 Constructor. It accepts a hash with these options:
@@ -86,7 +104,7 @@ sub new {
 
 =method cleanup
 
-Unlink the files dowloaded for this downloader
+Unlink the files dowloaded for this downloader (the XLS file)
 
 =cut
 
@@ -103,7 +121,7 @@ sub cleanup {
 =method download
 
 Download the ZIP file from the -url parameter. Extract the XLS file to the
-target_folder (which must exists)
+target_folder (which must exists).
 
 =cut
 
@@ -137,7 +155,7 @@ sub download {
 =method parse
 
 Parse and transform the XLS input file to the proper backend, according the
--target parameter.
+-target parameter. It relies on DBD::* in order to build the file.
 
 =cut
 

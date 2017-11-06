@@ -8,7 +8,7 @@ Chess::ELO::FEDA - Download FEDA ELO (L<http://www.feda.org>) into differents ba
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
@@ -18,6 +18,24 @@ version 0.02
       -target   => '2017_11.sqlite',
       -callback => sub { my $player = shift; },
       -verbose  => 1
+   );
+
+=head1 DESCRIPTION
+
+The main idea of this module consists on build a SQL format from the XLS
+downloaded from the URL provided. All players information are loaded into
+"elo_feda" table, according this script:
+
+   CREATE TABLE elo_feda(
+      feda_id integer primary key, 
+      surname varchar(32) not null,
+      name    varchar(32), 
+      fed     varchar(8), 
+      rating  integer, 
+      games   integer, 
+      birth   integer, 
+      title   varchar(16), 
+      flag    varchar(8)
    );
 
 =head1 METHODS
@@ -57,17 +75,17 @@ main file expected into the package is the XLS
 
 =head2 cleanup
 
-Unlink the files dowloaded for this downloader
+Unlink the files dowloaded for this downloader (the XLS file)
 
 =head2 download
 
 Download the ZIP file from the -url parameter. Extract the XLS file to the
-target_folder (which must exists)
+target_folder (which must exists).
 
 =head2 parse
 
 Parse and transform the XLS input file to the proper backend, according the
--target parameter.
+-target parameter. It relies on DBD::* in order to build the file.
 
 =head2 run
 
