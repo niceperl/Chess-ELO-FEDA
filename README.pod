@@ -60,7 +60,7 @@ Working folder of the overall process. It is not created if it doesn't exists.
 
 Target file where the parser stores the ELO information. According the file
 extension, it selects the proper backend: .sqlite for SQLite dabase or .csv
-for a CSV file format.
+for a CSV file format. An empty value means that no backend is built.
 
 =item -url
 
